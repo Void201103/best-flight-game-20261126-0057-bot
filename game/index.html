@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Meridian Ridge — Island Courier Run</title>
+<style>
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #0b1c2c; font-family: "Segoe UI", Verdana, sans-serif; }
+  #scene { position: fixed; inset: 0; display: block; }
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+  #instruments { position: absolute; left: 0; bottom: 0; width: 100%; height: 190px; }
+  .hud-box { position: absolute; color: #eaf6ff; text-shadow: 0 1px 3px rgba(0,0,0,.8); }
+  #hud-alt { top: 14px; left: 16px; }
+  #hud-spd { top: 14px; left: 50%; transform: translateX(-50%); }
+  #hud-hdg { top: 14px; right: 16px; text-align: right; }
+  .hud-label { font-size: 11px; letter-spacing: 2px; opacity: .85; }
+  .hud-value { font-size: 30px; font-weight: 700; line-height: 1.05; }
+  .hud-unit { font-size: 12px; opacity: .8; }
+  #hud-mission { top: 86px; left: 16px; font-size: 14px; line-height: 1.5; }
+  #hud-rings { top: 86px; right: 16px; text-align: right; font-size: 14px; line-height: 1.5; }
+  #hud-center { top: 38%; left: 50%; transform: translate(-50%, -50%); text-align: center; }
+  #hud-message { font-size: 26px; font-weight: 700; color: #ffe9a8; }
+  #hud-sub { font-size: 15px; color: #eaf6ff; margin-top: 6px; }
+  #hud-throttle { position: absolute; right: 18px; bottom: 200px; width: 14px; height: 120px; border: 2px solid rgba(234,246,255,.7); border-radius: 7px; background: rgba(0,0,0,.35); }
+  #hud-throttle-fill { position: absolute; left: 0; bottom: 0; width: 100%; background: #ffb347; border-radius: 5px; }
+  #hud-throttle-label { position: absolute; right: 40px; bottom: 200px; font-size: 11px; letter-spacing: 2px; color: #eaf6ff; text-shadow: 0 1px 3px rgba(0,0,0,.8); }
+  #vignette { position: fixed; inset: 0; pointer-events: none; z-index: 4; background: radial-gradient(ellipse at center, transparent 62%, rgba(2,10,20,.45) 100%); }
+  .panel { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 10; background: rgba(4, 18, 32, .55); }
+  .card { width: 620px; max-width: 92vw; background: linear-gradient(160deg, #10283f, #0a1a2b); border: 1px solid #2e5a7d; border-radius: 14px; padding: 26px 30px; color: #eaf6ff; box-shadow: 0 18px 60px rgba(0,0,0,.6); }
+  .card h1 { margin: 0 0 4px; font-size: 34px; letter-spacing: 1px; color: #ffd27a; }
+  .card h2 { margin: 0 0 10px; font-size: 15px; font-weight: 400; color: #9fd0ef; letter-spacing: 2px; text-transform: uppercase; }
+  .card p { font-size: 14px; line-height: 1.55; margin: 8px 0; }
+  .card .keys { font-size: 13px; line-height: 1.9; background: rgba(255,255,255,.06); border-radius: 8px; padding: 10px 14px; }
+  .card .keys b { color: #ffd27a; }
+  .btn { pointer-events: auto; cursor: pointer; display: inline-block; margin: 10px 8px 0 0; padding: 11px 22px; font-size: 15px; font-weight: 700; color: #0a1a2b; background: #ffb347; border: none; border-radius: 8px; }
+  .btn.secondary { background: #2e5a7d; color: #eaf6ff; }
+  .btn:hover { filter: brightness(1.1); }
+  .mission-row { display: flex; gap: 8px; margin: 12px 0 4px; }
+  .mission-btn { pointer-events: auto; cursor: pointer; flex: 1; padding: 10px 8px; border-radius: 8px; border: 1px solid #2e5a7d; background: rgba(255,255,255,.05); color: #eaf6ff; font-size: 13px; text-align: center; }
+  .mission-btn.selected { border-color: #ffb347; background: rgba(255,179,71,.18); }
+  .mission-btn small { display: block; opacity: .75; margin-top: 3px; font-size: 11px; }
+  #hud-damage { position: absolute; left: 50%; bottom: 196px; transform: translateX(-50%); font-size: 12px; letter-spacing: 2px; color: #ffb3b3; text-shadow: 0 1px 3px rgba(0,0,0,.8); }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+<div id="vignette"></div>
+<div id="hud">
+  <canvas id="instruments" width="1280" height="190"></canvas>
+  <div class="hud-box" id="hud-alt"><div class="hud-label">ALTITUDE</div><div><span class="hud-value" id="alt-value">0</span> <span class="hud-unit">FT</span></div><div class="hud-label" style="margin-top:4px">VERT <span id="vs-value">+0</span> FT/MIN</div></div>
+  <div class="hud-box" id="hud-spd"><div class="hud-label" style="text-align:center">AIRSPEED</div><div style="text-align:center"><span class="hud-value" id="spd-value">0</span> <span class="hud-unit">KTS</span></div></div>
+  <div class="hud-box" id="hud-hdg"><div class="hud-label">HEADING</div><div><span class="hud-value" id="hdg-value">000&deg;</span></div><div class="hud-label" style="margin-top:4px" id="hdg-name">NORTH</div></div>
+  <div class="hud-box" id="hud-mission"><div class="hud-label">MISSION</div><div id="mission-name">Harbour Rings</div><div id="mission-goal">Fly the rings, then land</div></div>
+  <div class="hud-box" id="hud-rings"><div class="hud-label">RINGS</div><div id="ring-count">0 / 5</div><div class="hud-label" style="margin-top:4px">SCORE <span id="score-value">0</span></div><div class="hud-label">TIME <span id="time-value">0:00</span></div></div>
+  <div class="hud-box" id="hud-center"><div id="hud-message"></div><div id="hud-sub"></div></div>
+  <div id="hud-throttle-label">THR</div>
+  <div id="hud-throttle"><div id="hud-throttle-fill" style="height:0%"></div></div>
+  <div id="hud-damage"></div>
+</div>
+
+<div class="panel" id="menu-panel">
+  <div class="card">
+    <h1>MERIDIAN RIDGE</h1>
+    <h2>Island Courier Run &middot; a flight game</h2>
+    <p>You fly the courier seaplane <b>&ldquo;Kestrel&rdquo;</b> across the Meridian islands. Thread the glowing rings, mind your fuel, and bring her home to the strip at Port Anselm. Hard landings bend the airframe &mdash; fly smooth, fly fast, fly home.</p>
+    <div class="mission-row" id="mission-row">
+      <div class="mission-btn selected" data-mission="0">1 &middot; Harbour Rings<small>5 rings &middot; calm air</small></div>
+      <div class="mission-btn" data-mission="1">2 &middot; Mountain Pass<small>6 rings &middot; gusty valleys</small></div>
+      <div class="mission-btn" data-mission="2">3 &middot; Storm Courier<small>7 rings &middot; dusk &amp; low fuel</small></div>
+    </div>
+    <div class="keys">
+      <b>W / S</b> pitch &nbsp;&middot;&nbsp; <b>A / D</b> bank &amp; turn &nbsp;&middot;&nbsp; <b>Shift / Ctrl</b> throttle up / down &nbsp;&middot;&nbsp; <b>Mouse</b> gentle steering<br>
+      <b>Space</b> airbrake &nbsp;&middot;&nbsp; <b>G</b> landing gear &nbsp;&middot;&nbsp; <b>C</b> cockpit / chase camera &nbsp;&middot;&nbsp; <b>P</b> pause &nbsp;&middot;&nbsp; <b>R</b> restart &nbsp;&middot;&nbsp; <b>M</b> sound
+    </div>
+    <button class="btn" id="btn-fly">TAKE OFF</button>
+    <button class="btn secondary" id="btn-how">HOW TO FLY</button>
+    <p id="how-text" class="hidden">Keep the nose on the horizon and the speed above 55 knots &mdash; below that she stalls and sinks. Bank to turn; the heading follows the bank. Rings pay 100 points, a smooth landing pays up to 500. Fuel burns with throttle: glide downhill to save it. Land on the lit strip, gear down, sink rate under 400 ft/min.</p>
+  </div>
+</div>
+
+<div class="panel hidden" id="end-panel">
+  <div class="card">
+    <h1 id="end-title">LANDED</h1>
+    <h2 id="end-sub">Port Anselm &middot; Meridian Ridge</h2>
+    <p id="end-stats"></p>
+    <button class="btn" id="btn-again">FLY AGAIN</button>
+    <button class="btn secondary" id="btn-menu">CHANGE MISSION</button>
+  </div>
+</div>
+
+<script src="vendor/three.min.js"></script>
+<script src="src/random.js"></script>
+<script src="src/config.js"></script>
+<script src="src/terrain.js"></script>
+<script src="src/aircraft.js"></script>
+<script src="src/physics.js"></script>
+<script src="src/input.js"></script>
+<script src="src/hud.js"></script>
+<script src="src/audio.js"></script>
+<script src="src/shots.js"></script>
+<script src="src/main.js"></script>
+</body>
+</html>
